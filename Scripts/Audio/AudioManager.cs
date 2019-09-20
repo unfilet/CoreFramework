@@ -161,6 +161,11 @@ namespace Core.Scripts.Audio
             instructionQueue.AddToQueue(clip, delay, action);
         }
 
+        public void StopInst()
+        {
+            instructionQueue.StopAndClear();
+        }
+
         #endregion
 
         #region Play Short
