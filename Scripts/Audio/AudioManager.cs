@@ -283,7 +283,7 @@ namespace Core.Scripts.Audio
 
         public void StopAndClear()
         {
-            audio.Stop();
+            if (audio) audio.Stop();
             clipQueue.Clear();
             isPlaying = false;
         }
