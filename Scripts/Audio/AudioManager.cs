@@ -225,7 +225,14 @@ namespace Core.Scripts.Audio
 
             internal void ChangeState(ClipState obj) {
                 currentState = obj;
-                onState?.Invoke(obj);
+                try
+                {
+                    onState?.Invoke(obj);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
             }
 		}
 
@@ -265,7 +272,9 @@ namespace Core.Scripts.Audio
 
             inf.ChangeState(ClipState.Wait);
 
-			await Delay(inf.delay);
+            if (inf.delay > 0)
+			    await Delay(inf.delay);
+
             if (inf.clip != null)
             {
                 audio.clip = inf.clip;
