@@ -152,13 +152,14 @@ namespace Core.Scripts.Audio
                 sourceMusic.clip = clip;
         }
 
-        public void PlayInst(AudioClip clip, double delay, Action action = null) {
+        public void PlayInst(AudioClip clip, double delay, Action<AudioQueue.ClipState> action = null) {
             instructionQueue.AddToQueue(clip, delay, action);
         }
 
-        public void PlayInst(IEnumerable<AudioClip> clip, double delay, Action action = null)
+        public void PlayInst(IEnumerable<AudioClip> clips, double delay, Action<AudioQueue.ClipState> action = null)
         {
-            instructionQueue.AddToQueue(clip, delay, action);
+            foreach (AudioClip clip in clips)
+                PlayInst(clip, delay, action);
         }
 
         public void StopInst()
@@ -200,18 +201,31 @@ namespace Core.Scripts.Audio
 
     public class AudioQueue
     {
-		private struct ClipInf
-		{
-			public AudioClip clip { get; }
-			public double delay { get; }
-            public Action OnComplete { get; }
+        public enum ClipState {
+            None,
+            Wait,
+            Played,
+            End
+        }
 
-			public ClipInf(AudioClip clip, double delay = 0, Action action = null)
+        private class ClipInf
+        {
+            public AudioClip clip { get; }
+            public double delay { get; }
+
+            private ClipState currentState = ClipState.None;
+            public event Action<ClipState> onState;
+
+			public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null)
 			{
 				this.clip = clip;
 				this.delay = delay;
-                this.OnComplete = action;
+                this.onState = action;
+            }
 
+            internal void ChangeState(ClipState obj) {
+                currentState = obj;
+                onState?.Invoke(obj);
             }
 		}
 
@@ -226,17 +240,10 @@ namespace Core.Scripts.Audio
             clipQueue = new Queue<ClipInf>();
         }
 
-        public void AddToQueue(AudioClip clip, double delay = 0, Action action = null)
+        public void AddToQueue(AudioClip clip, double delay = 0, Action<AudioQueue.ClipState> action = null)
         {
             clipQueue.Enqueue(new ClipInf(clip, delay, action));
             Play();
-        }
-
-        public void AddToQueue(IEnumerable<AudioClip> clips, double delay = 0, Action action = null)
-        {
-            foreach (AudioClip clip in clips)
-                AddToQueue(clip, delay);
-            AddToQueue((AudioClip)null, 0, action);
         }
     
         private void Play()
@@ -256,19 +263,21 @@ namespace Core.Scripts.Audio
 			var inf = clipQueue.Dequeue();
 			isPlaying = true;
 
-			await Delay(inf.delay);
+            inf.ChangeState(ClipState.Wait);
 
+			await Delay(inf.delay);
             if (inf.clip != null)
             {
                 audio.clip = inf.clip;
                 audio.Play();
 
-                double duration = (double)audio.clip.samples / audio.clip.frequency;
+                inf.ChangeState(ClipState.Played);
 
+                double duration = (double)audio.clip.samples / audio.clip.frequency;
                 await Delay(duration);
             }
 
-            inf.OnComplete?.Invoke();
+            inf.ChangeState(ClipState.End);
 
             _ = PlayNext();
 		}
