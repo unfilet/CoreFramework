@@ -12,7 +12,15 @@ using System.Text.RegularExpressions;
 
 namespace Core.Scripts.Utils
 {
-	public static class HelperClass
+    [Serializable] public class UnityEventString : UnityEvent<string> { }
+    [Serializable] public class UnityEventSprite : UnityEvent<Sprite> { }
+    [Serializable] public class UnityEventInt : UnityEvent<int> { }
+    [Serializable] public class UnityEventFloat : UnityEvent<float> { }
+    [Serializable] public class UnityEventBool : UnityEvent<bool> { }
+    [Serializable] public class UnityEventAudioClip : UnityEvent<AudioClip, float> { }
+    [Serializable] public class UnityEventTransform : UnityEvent<Transform> { }
+
+    public static class HelperClass
 	{
         public static bool IsEmailValid (string email) {
             string pattern =
@@ -80,14 +88,6 @@ namespace Core.Scripts.Utils
 			return new Color (gray,gray,gray,c.a);
 		}
 	}
-
-    [Serializable]public class UnityEventString : UnityEvent<string>{}
-    [Serializable]public class UnityEventInt : UnityEvent<int>{}
-    [Serializable]public class UnityEventFloat : UnityEvent<float>{}
-    [Serializable]public class UnityEventBool : UnityEvent<bool>{}
-    [Serializable]public class UnityEventAudioClip : UnityEvent<AudioClip, float>{}
-    [Serializable]public class UnityEventTransform : UnityEvent<Transform>{}
-    [Serializable]public class UnityEventCurrencyCallbk : UnityEvent<int, System.Action<bool>>{}
 }
 /*
 
