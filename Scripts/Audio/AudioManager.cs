@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.Audio;
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -23,7 +24,7 @@ namespace Core.Scripts.Audio
         private IEnumerator fadeCoroutine = null;
 
 
-        AudioQueue instructionQueue;
+        public AudioQueue instructionQueue { get; private set; }
 
         #region Property
 
@@ -212,6 +213,8 @@ namespace Core.Scripts.Audio
         {
             public AudioClip clip { get; }
             public double delay { get; }
+            public double duration =>
+                clip == null ? 0 : (double)clip.samples / clip.frequency;
 
             private ClipState currentState = ClipState.None;
             public event Action<ClipState> onState;
@@ -281,9 +284,7 @@ namespace Core.Scripts.Audio
                 audio.Play();
 
                 inf.ChangeState(ClipState.Played);
-
-                double duration = (double)audio.clip.samples / audio.clip.frequency;
-                await Delay(duration);
+                await Delay(inf.duration);
             }
 
             inf.ChangeState(ClipState.End);
