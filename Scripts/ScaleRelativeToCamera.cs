@@ -14,17 +14,7 @@ public class ScaleRelativeToCamera : MonoBehaviour
     private SpriteRenderer m_renderer;
     private SpriteRenderer renderer
             => m_renderer ?? (m_renderer = GetComponent<SpriteRenderer>());
-    
-    public AspectMode aspectMode
-    {
-        get => this.m_AspectMode;
-        set
-        {
-            if (m_AspectMode.Equals(value)) return;
-            this.SetDirty();
-        }
-    }
-
+  
     private void UpdateRect ()
     {
         if (!this.gameObject.activeInHierarchy)
