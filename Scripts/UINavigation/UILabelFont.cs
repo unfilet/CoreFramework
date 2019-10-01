@@ -8,12 +8,17 @@ using TMPro;
 
 namespace UISystem
 {
-    //    [ExecuteInEditMode]
+    [ExecuteInEditMode]
     public class UILabelFont : MonoBehaviour {
 
         [SerializeField] UIFontData font = null;
         void Awake() => Apply();
         public void Apply () => font?.Apply(this.gameObject);
+
+#if UNITY_EDITOR
+        private void OnValidate() => Apply();
+#endif
+
     }
 
 
@@ -30,6 +35,9 @@ namespace UISystem
             if (DrawDefaultInspector() || GUILayout.Button("Apply"))
                 foreach (var target in targets)
                     ((UILabelFont)target).Apply();
+
+            serializedObject.ApplyModifiedProperties();
+            serializedObject.Update();
         }
 
         /**/

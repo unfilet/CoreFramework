@@ -29,7 +29,8 @@ public class Singleton<T> : MonoBehaviourExt where T : MonoBehaviourExt
 				if (_instance == null)
 				{
 					_instance = (T) FindObjectOfType(typeof(T));
-                    DontDestroyOnLoad(_instance);
+                    if (_instance != null)
+                        DontDestroyOnLoad(_instance);
 
                     if ( FindObjectsOfType(typeof(T)).Length > 1 )
                     {

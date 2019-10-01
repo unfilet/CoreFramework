@@ -23,6 +23,9 @@ namespace Core.Scripts.Utils
     public static class HelperClass
 	{
         public static bool IsEmailValid (string email) {
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
             string pattern =
             @"^[\w!#$%&'*+\-/=?\^_`{|}~]+(\.[\w!#$%&'*+\-/=?\^_`{|}~]+)*"
             + "@"
