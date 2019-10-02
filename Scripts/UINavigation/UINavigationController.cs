@@ -5,7 +5,14 @@ using System.Collections.Generic;
 
 namespace MVC.UISystem
 {
-    public sealed class UINavigationController : System.Object
+    public interface INavigationController
+    {
+        IViewController VisibleViewController { get; }
+        void PushViewController(IViewController n, bool animated = false);
+        IViewController PopViewController(bool animated = false);
+    }
+
+    public sealed class UINavigationController : System.Object, INavigationController
     {
     	public enum NavigationType
     	{

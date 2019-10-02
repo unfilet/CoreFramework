@@ -8,7 +8,7 @@ namespace MVC.UISystem
         GameObject gameObject { get; }
     }
 
-    public class UIViewController : MonoBehaviourExt, IViewController {
+    public class UIViewController : MonoBehaviour, IViewController {
     	// Called when the view is about to made visible. Default does nothing
     	public virtual void viewWillAppear(bool animated) {}
     	// Called when the view has been fully transitioned onto the screen. Default does nothing
