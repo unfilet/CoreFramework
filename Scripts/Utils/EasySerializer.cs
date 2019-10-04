@@ -76,6 +76,10 @@ namespace Core.Scripts.Utils
             {
                 Console.WriteLine(e.Message);
             }
+            catch (SerializationException e)
+            {
+                Console.WriteLine(e.Message);
+            }
             return o;
 
         }
