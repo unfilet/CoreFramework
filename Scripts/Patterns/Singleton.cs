@@ -62,23 +62,10 @@ public class Singleton<T> : MonoBehaviourExt where T : MonoBehaviourExt
 
 	}
 
-	public static bool HasInstance {
-		get {
-			return !IsDestroyed;
-		}
-	}
+    public static bool HasInstance => !IsDestroyed;
+    public static bool IsDestroyed => _instance == null;
 
-	public static bool IsDestroyed {
-		get {
-			if(_instance == null) {
-				return true;
-			} else {
-				return false;
-			}
-		}
-	}
-
-	protected override void Awake() {
+    protected override void Awake() {
 		base.Awake ();
 		if (_instance == null) {
 			_instance = this as T;

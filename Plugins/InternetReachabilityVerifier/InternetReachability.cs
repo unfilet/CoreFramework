@@ -32,9 +32,9 @@ public sealed class InternetReachability : Singleton<InternetReachability>
 
     protected override void OnDestroy()
     {
+        if (Verifier != null)
+            Verifier.statusChangedDelegate -= netStatusChanged;
         base.OnDestroy();
-        if (Instance != this || Verifier == null ) return;
-        Verifier.statusChangedDelegate -= netStatusChanged;
     }
 
     private void netStatusChanged(IRVerifier.Status newStatus)

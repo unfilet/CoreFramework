@@ -1,34 +1,44 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using Zenject;
+﻿using Zenject;
 using Core.Scripts.Audio;
+using UnityEngine;
 
 public class UIBackgroundMusic : MonoBehaviour
 {
+    private enum Functions
+    {
+        Awake,
+        OnEnable,
+        OnDisable,
+        Start
+    }
+
     [Inject] AudioManager _audioManager;
 
-    [SerializeField] AudioEvent backgroundMusic;
+    [SerializeField] AudioEvent backgroundMusic = null;
+    [SerializeField] Functions executeFunction = Functions.Start;
+
+
+    private void Awake()
+    {
+        if (executeFunction == Functions.Awake)
+            _audioManager.PlayMusic(backgroundMusic);
+    }
 
     private void Start()
     {
-        _audioManager.PlayMusic(backgroundMusic);
+        if (executeFunction == Functions.Start)
+            _audioManager.PlayMusic(backgroundMusic);
     }
 
     private void OnEnable()
     {
-        AudioManager.OnMusicChanged += AudioManager_OnMusicChanged;
+        if (executeFunction == Functions.OnEnable)
+            _audioManager.PlayMusic(backgroundMusic);
     }
 
     private void OnDisable()
     {
-        AudioManager.OnMusicChanged -= AudioManager_OnMusicChanged;
+        if (executeFunction == Functions.OnDisable)
+            _audioManager.PlayMusic(backgroundMusic);
     }
-
-    void AudioManager_OnMusicChanged(bool obj)
-    {
-        if (obj) Start();
-
-    }
-
 }

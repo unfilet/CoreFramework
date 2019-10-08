@@ -22,7 +22,11 @@ public class SimpleFadeAudioEvent : AudioEvent
         var aVolume = Random.Range(volume.minValue, volume.maxValue);
         var aPitch = Random.Range(pitch.minValue, pitch.maxValue);
 
-        var mb = source.GetOrAddComponent<MonoBehaviour>();
+
+        if (source.clip == aClip && source.isPlaying && enumerator == null)
+            return;
+
+        var mb = source.GetOrAddComponent<MonoBehaviourExt>();
         if (enumerator != null) mb.StopCoroutine(enumerator);
         mb.StartCoroutine(enumerator = fadeIn(source, aClip, aVolume,aPitch));
     }
@@ -30,6 +34,8 @@ public class SimpleFadeAudioEvent : AudioEvent
     IEnumerator fadeIn(AudioSource source, AudioClip clip, float volume, float pitch) 
     {
         float speed = 1.5f;
+
+        
 
         while (source.isPlaying && source.volume > 0)
         {
