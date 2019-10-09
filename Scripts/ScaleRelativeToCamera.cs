@@ -17,11 +17,17 @@ public class ScaleRelativeToCamera : MonoBehaviour
   
     private void UpdateRect ()
     {
-        if (!this.gameObject.activeInHierarchy)
+        if (!this.gameObject.activeInHierarchy || renderer.sprite == null)
             return;
 
         Vector2 size = renderer.sprite.bounds.size;
-        Vector3 position = cam.transform.position + cam.transform.rotation * offset;
+        Vector2 pivot = new Vector2(
+            renderer.sprite.pivot.x / renderer.sprite.rect.width,
+            renderer.sprite.pivot.y / renderer.sprite.rect.height);
+        pivot -= Vector2.one * 0.5f;
+
+        Vector3 position = cam.transform.position
+            + cam.transform.rotation * offset;
 
         renderer.transform.position = position;
         renderer.transform.rotation = Quaternion.LookRotation(
@@ -59,9 +65,14 @@ public class ScaleRelativeToCamera : MonoBehaviour
                     scale = Mathf.Max(aspect.x, aspect.y);
 
                 renderer.transform.localScale = Vector3.one * scale;
+                renderer.transform.position += Vector3.Scale(pivot, parentSize);
+                
+
                 break;
         }
+        
 
+        
     }
 
 
