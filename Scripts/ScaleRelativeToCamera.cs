@@ -8,6 +8,8 @@ using AspectMode = UnityEngine.UI.AspectRatioFitter.AspectMode;
 public class ScaleRelativeToCamera : MonoBehaviour 
 {
     [SerializeField] Camera cam;
+    [SerializeField] tk2dCamera _tk2dCamera;
+
     [SerializeField] AspectMode m_AspectMode = AspectMode.None;
     [SerializeField] Vector3 offset;
 
@@ -45,10 +47,14 @@ public class ScaleRelativeToCamera : MonoBehaviour
             case AspectMode.EnvelopeParent:
 
                 Vector2 parentSize = Vector2.zero;
+
                 if (cam.orthographic)
-                    parentSize = new Vector2(
-                        OrthographicWidth(cam),
-                        OrthographicHeight(cam));
+                {
+                    if (_tk2dCamera != null)
+                        parentSize = OrthographicSize(_tk2dCamera);
+                    else
+                        parentSize = OrthographicSize(cam);
+                }
                 else
                     parentSize = new Vector2(
                         FrustumWidthAtDistance(cam, offset.z),
@@ -70,19 +76,16 @@ public class ScaleRelativeToCamera : MonoBehaviour
 
                 break;
         }
-        
-
-        
     }
 
 
+    Vector2 OrthographicSize(tk2dCamera camera)
+        => camera.ScreenExtents.size;
 
-    float OrthographicWidth(Camera camera)
-        => OrthographicHeight(camera) * camera.aspect;
-
-    // Calculate the frustum height at a given distance from the camera.
-    float OrthographicHeight(Camera camera)
-        => 2.0f * camera.orthographicSize;
+    Vector2 OrthographicSize(Camera camera)
+        => new Vector2(
+            2.0f * camera.orthographicSize * camera.aspect,
+            2.0f * camera.orthographicSize);
 
     // Calculate the frustum height at a given distance from the camera.
     float FrustumHeightAtDistance(Camera camera, float distance)
