@@ -12,9 +12,9 @@ namespace MVC
         void Init(T model);
     }
 
-    public abstract class View<T> : View, IView<T> where T : class//, IModel
+    public abstract class View<T> : View, IView<T> //where T : class, IModel
     {
-        [SerializeField] private T _model = null;
+        [SerializeField] private T _model = default;
         public T Model
         {
             get { return _model; }
@@ -52,5 +52,7 @@ namespace MVC
         }
 
         protected abstract void Init();
+
+        public virtual void SetActive(bool value) => gameObject.SetActive(value);
     }
 }

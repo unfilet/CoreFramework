@@ -165,7 +165,7 @@ namespace Core.Scripts.Audio
 
         public void StopInst()
         {
-            instructionQueue.StopAndClear();
+            instructionQueue?.StopAndClear();
         }
 
         #endregion
