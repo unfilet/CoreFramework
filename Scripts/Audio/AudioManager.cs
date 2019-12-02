@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityAsyncAwaitUtil;
+using System.Threading;
 
 namespace Core.Scripts.Audio
 {
@@ -153,7 +154,8 @@ namespace Core.Scripts.Audio
                 sourceMusic.clip = clip;
         }
 
-        public void PlayInst(AudioClip clip, double delay, Action<AudioQueue.ClipState> action = null) {
+        public void PlayInst(AudioClip clip, double delay, Action<AudioQueue.ClipState> action = null)
+        {
             instructionQueue.AddToQueue(clip, delay, action);
         }
 
@@ -202,7 +204,8 @@ namespace Core.Scripts.Audio
 
     public class AudioQueue
     {
-        public enum ClipState {
+        public enum ClipState
+        {
             None,
             Wait,
             Played,
@@ -219,14 +222,15 @@ namespace Core.Scripts.Audio
             private ClipState currentState = ClipState.None;
             public event Action<ClipState> onState;
 
-			public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null)
-			{
-				this.clip = clip;
-				this.delay = delay;
+            public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null)
+            {
+                this.clip = clip;
+                this.delay = delay;
                 this.onState = action;
             }
 
-            internal void ChangeState(ClipState obj) {
+            internal void ChangeState(ClipState obj)
+            {
                 currentState = obj;
                 try
                 {
@@ -237,12 +241,14 @@ namespace Core.Scripts.Audio
                     Debug.LogException(ex);
                 }
             }
-		}
+        }
 
         private AudioSource audio;
         private Queue<ClipInf> clipQueue;
 
-        public bool isPlaying { get; private set; }
+        public bool isPlaying => cts != null;
+
+        CancellationTokenSource cts;
 
         public AudioQueue(AudioSource source)
         {
@@ -252,59 +258,68 @@ namespace Core.Scripts.Audio
 
         public void AddToQueue(AudioClip clip, double delay = 0, Action<AudioQueue.ClipState> action = null)
         {
-            clipQueue.Enqueue(new ClipInf(clip, delay, action));
+            lock (clipQueue)
+                clipQueue.Enqueue(new ClipInf(clip, delay, action));
             Play();
         }
-    
-        private void Play()
+
+        private async void Play()
         {
-            if (isPlaying) return;
-            _ = PlayNext().ConfigureAwait(true);
-		}
-
-		private async Task PlayNext() {
-
-			if (clipQueue.Count <= 0)
-			{
-				StopAndClear();
-				return;
-			}
-
-			var inf = clipQueue.Dequeue();
-			isPlaying = true;
-
-            inf.ChangeState(ClipState.Wait);
-
-            if (inf.delay > 0)
-			    await Delay(inf.delay);
-
-            if (inf.clip != null)
+            if (cts == null)
             {
-                audio.clip = inf.clip;
-                audio.Play();
-
-                inf.ChangeState(ClipState.Played);
-                await Delay(inf.duration);
+                cts = new CancellationTokenSource();
+                try
+                {
+                    await PlayNext(cts.Token).ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                finally
+                {
+                    cts = null;
+                }
             }
+        }
 
-            inf.ChangeState(ClipState.End);
-
-            _ = PlayNext();
-		}
-
-        private async Task Delay(double delay, Action next = null)
+        private async Task PlayNext(CancellationToken cancellationToken)
         {
-            if (delay > 0)
-			    await Task.Delay(TimeSpan.FromSeconds(delay));
-            if (next != null)
-			    SyncContextUtil.RunOnUnityScheduler(next);
+            while (clipQueue.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                ClipInf inf = null;
+                lock (clipQueue)
+                    inf = clipQueue.Dequeue();
+
+                inf.ChangeState(ClipState.Wait);
+
+                if (inf.delay > 0)
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(inf.delay),
+                        cancellationToken);
+
+                if (inf.clip != null)
+                {
+                    audio.clip = inf.clip;
+                    audio.Play();
+
+                    inf.ChangeState(ClipState.Played);
+                    await Task.Delay(
+                        TimeSpan.FromSeconds(inf.duration),
+                        cancellationToken);
+                }
+
+                inf.ChangeState(ClipState.End);
+
+            } 
         }
 
         public void StopAndClear()
         {
+            cts?.Cancel();
             if (audio) audio.Stop();
             clipQueue.Clear();
-            isPlaying = false;
         }
     }
 }
