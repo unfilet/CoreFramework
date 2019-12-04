@@ -7,9 +7,12 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityAsyncAwaitUtil;
 using System.Threading;
+using UniRx;
 
 namespace Core.Scripts.Audio
 {
+    using ClipState = AudioQueue.ClipState;
+
     public class AudioManager : MonoBehaviourExt
     {
 
@@ -154,16 +157,14 @@ namespace Core.Scripts.Audio
                 sourceMusic.clip = clip;
         }
 
-        public void PlayInst(AudioClip clip, double delay, Action<AudioQueue.ClipState> action = null)
-        {
-            instructionQueue.AddToQueue(clip, delay, action);
-        }
+        public IObservable<ClipState> PlayInst(AudioClip clip, double delay, Action<ClipState> action = null)
+            => instructionQueue.AddToQueue(clip, delay, action);
 
-        public void PlayInst(IEnumerable<AudioClip> clips, double delay, Action<AudioQueue.ClipState> action = null)
-        {
-            foreach (AudioClip clip in clips)
-                PlayInst(clip, delay, action);
-        }
+        public IObservable<ClipState> PlayInst(double delay, params AudioClip[] clips)
+            => PlayInst(delay, (IEnumerable<AudioClip>)clips);
+
+        public IObservable<ClipState> PlayInst(double delay, IEnumerable<AudioClip> clips)
+            => clips.Select(c => PlayInst(c, delay)).ToArray().Concat();
 
         public void StopInst()
         {
@@ -208,39 +209,40 @@ namespace Core.Scripts.Audio
         {
             None,
             Wait,
-            Played,
+            Start,
             End
         }
 
-        private class ClipInf
+        private class ClipInf : IObservable<ClipState>, IObserver<ClipState>
         {
+            private Subject<ClipState> subject;
+            public ClipState currentState { get; private set; }
+
             public AudioClip clip { get; }
             public double delay { get; }
             public double duration =>
                 clip == null ? 0 : (double)clip.samples / clip.frequency;
 
-            private ClipState currentState = ClipState.None;
-            public event Action<ClipState> onState;
-
             public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null)
             {
                 this.clip = clip;
                 this.delay = delay;
-                this.onState = action;
+
+                subject = new Subject<ClipState>();
+                if (action != null) subject.Subscribe(action);
             }
 
-            internal void ChangeState(ClipState obj)
+            ~ClipInf()
             {
-                currentState = obj;
-                try
-                {
-                    onState?.Invoke(obj);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                }
+                subject?.Dispose();
             }
+
+            public IDisposable Subscribe(IObserver<ClipState> observer)
+                => subject.Subscribe(observer);
+
+            public void OnCompleted() => subject.OnCompleted();
+            public void OnError(Exception error) => subject.OnError(error);
+            public void OnNext(ClipState value) => subject.OnNext(currentState = value);
         }
 
         private AudioSource audio;
@@ -249,6 +251,8 @@ namespace Core.Scripts.Audio
         public bool isPlaying => cts != null;
 
         CancellationTokenSource cts;
+        object observerLock = new object();
+
 
         public AudioQueue(AudioSource source)
         {
@@ -256,11 +260,13 @@ namespace Core.Scripts.Audio
             clipQueue = new Queue<ClipInf>();
         }
 
-        public void AddToQueue(AudioClip clip, double delay = 0, Action<AudioQueue.ClipState> action = null)
+        public IObservable<ClipState> AddToQueue(AudioClip clip, double delay = 0, Action<ClipState> action = null)
         {
-            lock (clipQueue)
-                clipQueue.Enqueue(new ClipInf(clip, delay, action));
+            var ci = new ClipInf(clip, delay, action);
+            lock (observerLock)
+                clipQueue.Enqueue(ci);
             Play();
+            return ci;
         }
 
         private async void Play()
@@ -289,37 +295,46 @@ namespace Core.Scripts.Audio
                 cancellationToken.ThrowIfCancellationRequested();
 
                 ClipInf inf = null;
-                lock (clipQueue)
+                lock (observerLock)
                     inf = clipQueue.Dequeue();
 
-                inf.ChangeState(ClipState.Wait);
+                if (inf == null)
+                    continue;
 
                 if (inf.delay > 0)
+                {
+                    inf.OnNext(ClipState.Wait);
                     await Task.Delay(
                         TimeSpan.FromSeconds(inf.delay),
                         cancellationToken);
+                }
 
                 if (inf.clip != null)
                 {
                     audio.clip = inf.clip;
                     audio.Play();
 
-                    inf.ChangeState(ClipState.Played);
+                    inf.OnNext(ClipState.Start);
                     await Task.Delay(
                         TimeSpan.FromSeconds(inf.duration),
                         cancellationToken);
                 }
 
-                inf.ChangeState(ClipState.End);
-
-            } 
+                inf.OnNext(ClipState.End);
+                inf.OnCompleted();
+            }
         }
 
         public void StopAndClear()
         {
             cts?.Cancel();
             if (audio) audio.Stop();
-            clipQueue.Clear();
+            lock (observerLock)
+            {
+                foreach (var item in clipQueue)
+                    item.OnCompleted();
+                clipQueue.Clear();
+            }
         }
     }
 }
