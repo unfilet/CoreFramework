@@ -223,13 +223,17 @@ namespace Core.Scripts.Audio
             public double duration =>
                 clip == null ? 0 : (double)clip.samples / clip.frequency;
 
-            public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null)
+            public ClipInf(AudioClip clip, double delay = 0)
             {
                 this.clip = clip;
                 this.delay = delay;
+                this.subject = new Subject<ClipState>();
+            }
 
-                subject = new Subject<ClipState>();
-                if (action != null) subject.Subscribe(action);
+            public ClipInf(AudioClip clip, double delay = 0, Action<ClipState> action = null) : this(clip, delay)
+            {
+                if (action != null)
+                    subject.Subscribe(action);
             }
 
             ~ClipInf()
@@ -248,7 +252,7 @@ namespace Core.Scripts.Audio
         private AudioSource audio;
         private Queue<ClipInf> clipQueue;
 
-        public bool isPlaying => cts != null;
+        public bool isPlaying => cts != null && !cts.IsCancellationRequested;
 
         CancellationTokenSource cts;
         object observerLock = new object();
@@ -271,26 +275,28 @@ namespace Core.Scripts.Audio
 
         private async void Play()
         {
-            if (cts == null)
+            if (cts == null || cts.IsCancellationRequested)
             {
-                cts = new CancellationTokenSource();
+                var ctSource = this.cts = new CancellationTokenSource();
                 try
                 {
-                    await PlayNext(cts.Token).ConfigureAwait(true);
+                    await PlayNext(ctSource.Token);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
+                    Debug.LogException(ex);
                 }
                 finally
                 {
-                    cts = null;
+                    if (this.cts == ctSource)
+                        this.cts = null;
                 }
             }
         }
 
         private async Task PlayNext(CancellationToken cancellationToken)
         {
-            while (clipQueue.Count > 0)
+            while (clipQueue != null && clipQueue.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -304,6 +310,7 @@ namespace Core.Scripts.Audio
                 if (inf.delay > 0)
                 {
                     inf.OnNext(ClipState.Wait);
+
                     await Task.Delay(
                         TimeSpan.FromSeconds(inf.delay),
                         cancellationToken);
@@ -328,9 +335,11 @@ namespace Core.Scripts.Audio
         public void StopAndClear()
         {
             cts?.Cancel();
+
             if (audio) audio.Stop();
             lock (observerLock)
             {
+
                 foreach (var item in clipQueue)
                     item.OnCompleted();
                 clipQueue.Clear();
