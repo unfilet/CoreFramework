@@ -282,9 +282,8 @@ namespace Core.Scripts.Audio
                 {
                     await PlayNext(ctSource.Token);
                 }
-                catch (OperationCanceledException ex)
+                catch (OperationCanceledException)
                 {
-                    Debug.LogException(ex);
                 }
                 finally
                 {
@@ -316,7 +315,7 @@ namespace Core.Scripts.Audio
                         cancellationToken);
                 }
 
-                if (inf.clip != null)
+                if (inf.clip != null && audio)
                 {
                     audio.clip = inf.clip;
                     audio.Play();
