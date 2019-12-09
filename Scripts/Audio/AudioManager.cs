@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using UnityAsyncAwaitUtil;
 using System.Threading;
 using UniRx;
+using Zenject;
 
 namespace Core.Scripts.Audio
 {
@@ -15,6 +16,7 @@ namespace Core.Scripts.Audio
 
     public class AudioManager : MonoBehaviourExt
     {
+        [Inject] ConfigurationHolder configuration;
 
         #region Audio Sources
 
@@ -24,10 +26,7 @@ namespace Core.Scripts.Audio
 
         #endregion
 
-        private AudioMixer masterMixer = null;
         private IEnumerator fadeCoroutine = null;
-
-
         public AudioQueue instructionQueue { get; private set; }
 
         #region Property
@@ -56,20 +55,6 @@ namespace Core.Scripts.Audio
             }
         }
 
-        public float MixerVolume
-        {
-            get
-            {
-                float retval = 0;
-                masterMixer?.GetFloat("Volume", out retval);
-                return retval;
-            }
-            set
-            {
-                masterMixer?.SetFloat("Volume", value);
-            }
-        }
-
         #endregion
 
         #region Lifecycle
@@ -79,6 +64,29 @@ namespace Core.Scripts.Audio
             base.Awake();
             instructionQueue = new AudioQueue(sourceInstructions);
         }
+
+        IEnumerator Start()
+        {
+            yield return new WaitForEndOfFrame();
+
+            configuration.music
+                .Select(LinearToDecibel)
+                .Subscribe(v => sourceMusic.outputAudioMixerGroup.audioMixer.SetFloat("VolumeMusic", v))
+                .AddTo(this);
+            configuration.effects
+                .Select(LinearToDecibel)
+                .Subscribe(v => sourceEffects.outputAudioMixerGroup.audioMixer.SetFloat("VolumeEffects", v))
+                .AddTo(this);
+            configuration.voice
+                .Select(LinearToDecibel)
+                .Subscribe(v => sourceInstructions.outputAudioMixerGroup.audioMixer.SetFloat("VolumeVoice", v))
+                .AddTo(this);
+        }
+
+        public static float LinearToDecibel(float linear)
+            => Mathf.Log10(Mathf.Max(0.0001f, linear)) * 20f;
+        public static float DecibelToLinear(float dB)
+            => Mathf.Pow(10.0f, dB / 20.0f);
 
         protected override void OnEnable()
         {
@@ -177,11 +185,8 @@ namespace Core.Scripts.Audio
 
         public void PlayShort(AudioClip clip)
         {
-            if (!Sounds)
-                return;
-
-            float vol = 1 - Mathf.Abs(MixerVolume / 80f);
-            sourceMusic.PlayOneShot(clip, vol);
+            if (!Sounds) return;
+            sourceEffects.PlayOneShot(clip);
         }
 
         #endregion
@@ -191,7 +196,7 @@ namespace Core.Scripts.Audio
         public void PlayShort(AudioEvent audioEvent)
         {
             if (!Sounds) return;
-            audioEvent.Play(sourceMusic);
+            audioEvent.Play(sourceEffects);
         }
 
         public void PlayMusic(AudioEvent audioEvent, bool loop = true)
