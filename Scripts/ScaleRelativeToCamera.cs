@@ -19,7 +19,7 @@ public class ScaleRelativeToCamera : MonoBehaviour
   
     private void UpdateRect ()
     {
-        if (!this.gameObject.activeInHierarchy || renderer.sprite == null)
+        if (!this.gameObject.activeInHierarchy || renderer == null || renderer.sprite == null)
             return;
 
         Vector2 size = renderer.sprite.bounds.size;

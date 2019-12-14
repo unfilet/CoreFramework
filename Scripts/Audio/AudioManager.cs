@@ -208,7 +208,7 @@ namespace Core.Scripts.Audio
         #endregion
     }
 
-    public class AudioQueue
+    public class AudioQueue : IObservable<ClipState>
     {
         public enum ClipState
         {
@@ -262,9 +262,11 @@ namespace Core.Scripts.Audio
         CancellationTokenSource cts;
         object observerLock = new object();
 
+        private Subject<ClipState> subject;
 
         public AudioQueue(AudioSource source)
         {
+            subject = new Subject<ClipState>();
             audio = source;
             clipQueue = new Queue<ClipInf>();
         }
@@ -274,7 +276,11 @@ namespace Core.Scripts.Audio
             var ci = new ClipInf(clip, delay, action);
             lock (observerLock)
                 clipQueue.Enqueue(ci);
+
+            ci.Subscribe(s => subject?.OnNext(s));
+
             Play();
+
             return ci;
         }
 
@@ -349,5 +355,8 @@ namespace Core.Scripts.Audio
                 clipQueue.Clear();
             }
         }
+
+        public IDisposable Subscribe(IObserver<ClipState> observer)
+            => subject.Subscribe(observer);
     }
 }
