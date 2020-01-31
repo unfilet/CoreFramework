@@ -1,4 +1,5 @@
 ﻿using System;
+using UnityEngine;
 
 [Serializable]
 public struct RangedFloat
@@ -18,4 +19,10 @@ public struct RangedFloat
 
     public bool InRange(float value)
         => minValue <= value && value <= maxValue;
+
+    public float Lerp(float t)
+        => Mathf.Lerp(minValue, maxValue, t);
+
+    public float Random()
+        => UnityEngine.Random.Range(minValue, maxValue);
 }
