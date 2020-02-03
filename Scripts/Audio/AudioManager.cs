@@ -65,7 +65,7 @@ namespace Core.Scripts.Audio
             instructionQueue = new AudioQueue(sourceInstructions);
         }
 
-        IEnumerator Start()
+        new IEnumerator Start()
         {
             yield return new WaitForEndOfFrame();
 

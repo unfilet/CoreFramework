@@ -14,7 +14,7 @@ public class ScaleRelativeToCamera : MonoBehaviour
     [SerializeField] Vector3 offset;
 
     private SpriteRenderer m_renderer;
-    private SpriteRenderer renderer
+    private new SpriteRenderer renderer
             => m_renderer ?? (m_renderer = GetComponent<SpriteRenderer>());
   
     private void UpdateRect ()
