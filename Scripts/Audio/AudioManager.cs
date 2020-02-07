@@ -65,9 +65,9 @@ namespace Core.Scripts.Audio
             instructionQueue = new AudioQueue(sourceInstructions);
         }
 
-        new IEnumerator Start()
+        protected override void Start()
         {
-            yield return new WaitForEndOfFrame();
+            base.Start();
 
             configuration.music
                 .Select(LinearToDecibel)

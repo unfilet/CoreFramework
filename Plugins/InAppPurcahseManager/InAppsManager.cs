@@ -53,9 +53,11 @@ namespace UnityEngine.Purchasing
         private IInternetVerifier internetVerifier;
         private IAlerPopUp alerPopUp;
 
+#pragma warning disable 414
         public event Action<string> OnInAppPurchaseComplete = null;
         public event Action<string> OnInAppPurchaseFailed = null;
         public event Action<bool> OnInited = null;
+#pragma warning restore 414
 
         private bool _IsInited = false;
         public virtual bool IsInited

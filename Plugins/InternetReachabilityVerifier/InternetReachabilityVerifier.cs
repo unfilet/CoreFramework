@@ -36,6 +36,7 @@
 #if UNITY_EDITOR
 //#define DEBUG_LOGS
 //#define DEBUG_WARNINGS
+#pragma warning disable 618
 #endif
 
 using UnityEngine;
