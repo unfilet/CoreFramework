@@ -1,0 +1,174 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 1726182683, guid: a4865f1ab4504ed8a368670db22f409c, type: 3}
+  m_Name: AOTGenerationConfig
+  m_EditorClassIdentifier: 
+  automateBeforeBuilds: 1
+  deleteDllAfterBuilds: 1
+  AutomateForAllAOTPlatforms: 1
+  automateForPlatforms: 09000000140000000d000000
+  lastScan: 637691416883495960
+  supportSerializedTypes:
+  - TypeName: UnityEngine.Events.ArgumentCache, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Boolean, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.CardPurchase, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.ChestCards, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.ChestPurchase, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.CurrencyPack, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: CurrencyType, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.DateTime, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.DayOfWeek, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Nullable`1[[System.DayOfWeek, mscorlib]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: DiceController+DiceRotEntry, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.Dictionary`2[[CurrencyType, Assembly-CSharp],[TMPro.TMP_SpriteAsset,
+      Unity.TextMeshPro]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[DiceController+DiceRotEntry,
+      Assembly-CSharp]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.Dictionary`2[[System.Int32, mscorlib],[UnityEngine.Events.UnityEvent,
+      UnityEngine.CoreModule]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.Dictionary`2[[RarityTypes, Assembly-CSharp],[TMPro.TMP_SpriteAsset,
+      Unity.TextMeshPro]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.EnumEqualityComparer`1[[CurrencyType, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.EnumEqualityComparer`1[[RarityTypes, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Single, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.GenericEqualityComparer`1[[System.Int32,
+      mscorlib]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.IEqualityComparer`1[[CurrencyType, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.IEqualityComparer`1[[System.Int32, mscorlib]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.IEqualityComparer`1[[RarityTypes, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Int32, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Nullable`1[[System.Int32, mscorlib]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UI.Shop.ChestCards, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UI.Shop.ChestPurchase, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UI.Shop.CurrencyPack, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UI.Shop.OfferPack, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UnityEngine.Events.PersistentCall,
+      UnityEngine.CoreModule]], mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Collections.Generic.List`1[[UI.Shop.PurchaseSingle, Assembly-CSharp]],
+      mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.Object, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Object, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.OfferPack, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.OfferPack+Visibility, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Events.PersistentCall, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Events.PersistentCallGroup, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Events.PersistentListenerMode, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.Price, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UI.Shop.PurchaseSingle, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: RarityTypes, Assembly-CSharp
+    IsCustom: 0
+    Emit: 1
+  - TypeName: System.String, mscorlib
+    IsCustom: 0
+    Emit: 1
+  - TypeName: TMPro.TMP_SpriteAsset, Unity.TextMeshPro
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Events.UnityEvent, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Events.UnityEventCallState, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Vector3, UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1
+  - TypeName: UnityEngine.Vector3[], UnityEngine.CoreModule
+    IsCustom: 0
+    Emit: 1

@@ -54,7 +54,8 @@ public static class UnityWebRequestTextureWraper
         {
             await uwr.SendWebRequest();
 
-            if (uwr.isNetworkError || uwr.isHttpError)
+            if (uwr.result == UnityWebRequest.Result.ConnectionError ||
+                uwr.result == UnityWebRequest.Result.ProtocolError)
                 throw new Exception(uwr.error);
             else
                 return DownloadHandlerTexture.GetContent(uwr);

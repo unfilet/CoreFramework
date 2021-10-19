@@ -2,8 +2,18 @@
 using System.Linq;
 using System.Collections.Generic;
 
-static class RandomExtensions
+public static class RandomExtensions
 {
+	private static readonly Random rand = new Random();
+
+	public static int IndexOf<T>(this IList<T> list, Predicate<T> predicate)
+	{
+		for (int i = 0; i < list.Count; i++)
+			if (predicate.Invoke(list[i]))
+				return i;
+		return -1;
+	}
+
 	/// <summary>
 	/// Returns a random element from a list, or null if the list is empty.
 	/// </summary>
@@ -11,7 +21,7 @@ static class RandomExtensions
 	/// <returns>A random element from a list, or null if the list is empty</returns>
 	public static T Random<T>(this IEnumerable<T> list)
 	{
-		return list.Random(new Random());
+		return list.Random(rand);
 	}
 
 	/// <summary>
@@ -34,7 +44,7 @@ static class RandomExtensions
 	/// <returns>A shuffled shallow copy of the source items</returns>
 	public static IEnumerable<T> Shuffle<T>(this IEnumerable<T> source)
 	{
-		return source.Shuffle(new Random());
+		return source.Shuffle(rand);
 	}
 	
 	/// <summary>
@@ -56,7 +66,7 @@ static class RandomExtensions
 	/// <typeparam name="T">The type of elements in the list</typeparam>
 	public static void Shuffle<T>(this IList<T> list)
 	{
-		list.Shuffle(new Random());
+		list.Shuffle(rand);
 	}
 	
 	/// <summary>
@@ -88,4 +98,13 @@ static class RandomExtensions
 			}
 		}
 	}
+
+	public static IList<T> Swap<T>(this IList<T> list, int indexA, int indexB)
+	{
+		T tmp = list[indexA];
+		list[indexA] = list[indexB];
+		list[indexB] = tmp;
+		return list;
+	}
+
 }

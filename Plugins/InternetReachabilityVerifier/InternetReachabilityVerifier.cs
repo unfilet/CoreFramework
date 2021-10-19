@@ -3,11 +3,10 @@
 // Helper class for verifying actual connectivity to Internet.
 // Implements various "captive portal detection" methods using Unity.
 //
-// Copyright 2014-2018 Jetro Lauha (Strobotnik Ltd)
-// http://strobotnik.com
-// http://jet.ro
+// Copyright 2014-2020 Jetro Lauha (Strobotnik Ltd)
+// https://strobotnik.com
 //
-// $Revision: 1309 $
+// $Revision: 1462 $
 //
 // File version history:
 // 2014-06-18, 1.0.0 - Initial version
@@ -31,22 +30,36 @@
 // 2017-04-12, 1.1.2 - Hotfix for Apple methods.
 // 2018-03-06, 1.1.3 - Fixed deprecation warning with latest Unity versions.
 //                     Made responseHeaders related code bit more robust.
+// 2019-01-29, 1.2.0 - Use UnityWebRequest with Unity 2018.3+. Added new
+//                     detection methods. Verified WebGL&Facebook support.
+// 2020-09-23, 1.2.3 - 
 
 #define DEBUG_ERRORS
 #if UNITY_EDITOR
 //#define DEBUG_LOGS
-//#define DEBUG_WARNINGS
-#pragma warning disable 618
+#define DEBUG_WARNINGS
+#define DEBUG_ERRORS
+#endif
+
+// If you want to use UnityWebRequest with earlier Unity versions, you can comment-out Unity version >2018.3 check
+#if UNITY_2018_3_OR_NEWER
+#define IRV_USE_WEBREQUEST
 #endif
 
 using UnityEngine;
-using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
 
+#if IRV_USE_WEBREQUEST
+using IRVWebRequest = UnityEngine.Networking.UnityWebRequest;
+#else
+using IRVWebRequest = UnityEngine.WWW;
+#endif
 
 public class InternetReachabilityVerifier : MonoBehaviour
 {
+    const int version = 1200;
+
     //! Method to detect if network only reaches a "captive portal".
     /*! DefaultByPlatform picks the "platform provider" method,
      * e.g. Android->Google204, iOS->AppleHTTPS, Windows->MicrosoftNCSI.
@@ -59,9 +72,14 @@ public class InternetReachabilityVerifier : MonoBehaviour
         MicrosoftNCSI, //!< Microsoft Network Connectivity Status Indicator check.
         Apple, //!< Fetch html page from apple.com with word "Success".
         Ubuntu, //!< Ubuntu connectivity check, returns Lorem ipsum.
-        Custom, //!< Test using your self-hosted server.
+        Custom, //!< Test using your self-hosted server. Both HTTP or HTTPS are fine.
         Apple2, //!< Like Apple method but use captive.apple.com and random path.
         AppleHTTPS, //!< Same as Apple but fetch using HTTPS.
+        Google204HTTPS, //!< Same as Google204 but fetch using HTTPS.
+        UbuntuHTTPS, //!< Same as Ubuntu but fetch using HTTPS.
+        MicrosoftConnectTest, //!< Microsoft's alternative connect tester. Note: this one seems to set Access-Control-Allow-Origin.
+        MicrosoftNCSI_IPV6, //!< Same as MicrosoftNCSI but works only in IPV6 networks.
+        MicrosoftConnectTest_IPV6, //!< Same as MicrosoftConnectTest but works only in IPV6 networks.
     };
 
     public CaptivePortalDetectionMethod captivePortalDetectionMethod = CaptivePortalDetectionMethod.DefaultByPlatform;
@@ -94,6 +112,8 @@ public class InternetReachabilityVerifier : MonoBehaviour
     #endif
     public float mismatchRetryDelay = 7.0f;
 
+    [HideInInspector]
+    public bool alwaysUseCacheBuster = false;
 
     public enum Status
     {
@@ -107,7 +127,11 @@ public class InternetReachabilityVerifier : MonoBehaviour
     public delegate void StatusChangedDelegate(Status newStatus);
     public event StatusChangedDelegate statusChangedDelegate = null;
 
-    public delegate bool CustomMethodVerifierDelegate(WWW www, string customMethodExpectedData);
+#if IRV_USE_WEBREQUEST
+    public delegate bool CustomMethodVerifierDelegate(UnityEngine.Networking.UnityWebRequest wr, string customMethodExpectedData);
+#else
+    public delegate bool CustomMethodVerifierDelegate(UnityEngine.WWW www, string customMethodExpectedData);
+#endif
     public CustomMethodVerifierDelegate customMethodVerifierDelegate = null;
 
     float noInternetStartTime = 0;
@@ -191,7 +215,6 @@ public class InternetReachabilityVerifier : MonoBehaviour
      */
     public IEnumerator waitForNetVerifiedStatus()
     {
-        yield return new WaitForEndOfFrame();
         if (status != Status.NetVerified)
             forceReverification();
         while (status != Status.NetVerified)
@@ -232,23 +255,24 @@ public class InternetReachabilityVerifier : MonoBehaviour
 
     string getCaptivePortalDetectionURL(CaptivePortalDetectionMethod cpdm)
     {
+        string url = "";
+        bool appendCacheBuster = false;
         if (cpdm == CaptivePortalDetectionMethod.Custom)
         {
-            string url = customMethodURL;
+            url = customMethodURL;
             if (customMethodWithCacheBuster)
-                url += "?z=" + (Random.Range(0, 0x7fffffff) ^ 0x13377AA7);
-            return url;
+                appendCacheBuster = true;
         }
         else if (cpdm == CaptivePortalDetectionMethod.Google204)
-            return "http://clients3.google.com/generate_204";
+            url = "http://clients3.google.com/generate_204";
         else if (cpdm == CaptivePortalDetectionMethod.MicrosoftNCSI)
-            return "http://www.msftncsi.com/ncsi.txt";
+            url = "http://www.msftncsi.com/ncsi.txt";
         else if (cpdm == CaptivePortalDetectionMethod.GoogleBlank)
-            return "http://www.google.com/blank.html";
+            url = "http://www.google.com/blank.html";
         else if (cpdm == CaptivePortalDetectionMethod.Apple)
-            return "http://www.apple.com/library/test/success.html";
+            url = "http://www.apple.com/library/test/success.html";
         else if (cpdm == CaptivePortalDetectionMethod.Ubuntu)
-            return "http://start.ubuntu.com/connectivity-check";
+            url = "http://start.ubuntu.com/connectivity-check";
         else if (cpdm == CaptivePortalDetectionMethod.Apple2)
         {
             if (apple2MethodURL.Length == 0)
@@ -263,62 +287,188 @@ public class InternetReachabilityVerifier : MonoBehaviour
                 Debug.Log("IRV using apple2MethodURL: " + apple2MethodURL);
 #               endif
             }
-            return apple2MethodURL;
+            url = apple2MethodURL;
         }
         else if (cpdm == CaptivePortalDetectionMethod.AppleHTTPS)
-        {
-            return "https://www.apple.com/library/test/success.html";
-        }
-        return "";
+            url = "https://www.apple.com/library/test/success.html";
+        else if (cpdm == CaptivePortalDetectionMethod.Google204HTTPS)
+            url = "https://clients3.google.com/generate_204";
+        else if (cpdm == CaptivePortalDetectionMethod.UbuntuHTTPS)
+            url = "https://start.ubuntu.com/connectivity-check";
+        else if (cpdm == CaptivePortalDetectionMethod.MicrosoftConnectTest)
+            url = "http://www.msftconnecttest.com/connecttest.txt";
+        else if (cpdm == CaptivePortalDetectionMethod.MicrosoftNCSI_IPV6)
+            url = "http://ipv6.msftncsi.com/ncsi.txt";
+        else if (cpdm == CaptivePortalDetectionMethod.MicrosoftConnectTest_IPV6)
+            url = "http://ipv6.msftconnecttest.com/connecttest.txt";
+        if (appendCacheBuster || alwaysUseCacheBuster)
+            url += "?z=" + (Random.Range(0, 0x7fffffff) ^ 0x13377AA7);
+        return url;
     }
 
-    bool checkCaptivePortalDetectionResult(CaptivePortalDetectionMethod cpdm, WWW www)
+    #region Internal IRVWebRequest helper wrapper methods (iwrGet)
+
+    private long iwrGet_bytesDownloaded(IRVWebRequest iwr)
     {
-        if (www == null)
+#if IRV_USE_WEBREQUEST
+        return (long)iwr.downloadedBytes;
+#else
+#if UNITY_3_5
+        return iwr.size;
+#else
+        return iwr.bytesDownloaded;
+#endif
+#endif
+    }
+
+    private string iwrGet_text(IRVWebRequest iwr)
+    {
+#if IRV_USE_WEBREQUEST
+#if UNITY_2020_2_OR_NEWER
+        if (iwr == null || iwr.result != IRVWebRequest.Result.Success || iwr.downloadHandler == null)
+            return "";
+#else
+        if (iwr == null || iwr.isNetworkError || iwr.downloadHandler == null)
+            return "";
+#endif
+        return iwr.downloadHandler.text;
+#else
+        return iwr.text;
+#endif
+    }
+
+    private byte[] iwrGet_bytes(IRVWebRequest iwr)
+    {
+#if IRV_USE_WEBREQUEST
+#if UNITY_2020_2_OR_NEWER
+        if (iwr == null || iwr.result != IRVWebRequest.Result.Success || iwr.downloadHandler == null)
+            return new byte[0];
+#else
+        if (iwr == null || iwr.isNetworkError || iwr.downloadHandler == null)
+            return new byte[0];
+#endif
+        return iwr.downloadHandler.data;
+#else
+        return iwr.bytes;
+#endif
+    }
+
+    private Dictionary<string, string> iwrGet_responseHeaders(IRVWebRequest iwr)
+    {
+#if IRV_USE_WEBREQUEST
+        return iwr.GetResponseHeaders();
+#else
+        return iwr.responseHeaders;
+#endif
+    }
+
+    private string iwrGet_responseHeader(IRVWebRequest iwr, string key)
+    {
+#if IRV_USE_WEBREQUEST
+        return iwr.GetResponseHeader(key);
+#else
+        Dictionary<string, string> responseHeaders = iwrGet_responseHeaders(iwr);
+        if (responseHeaders.ContainsKey(key))
+            return iwr.responseHeaders[key];
+        return null;
+#endif
+    }
+
+    private bool iwrGet_isError(IRVWebRequest iwr)
+    {
+#if IRV_USE_WEBREQUEST
+#if UNITY_2020_2_OR_NEWER
+        return iwr.result != IRVWebRequest.Result.Success || iwr.responseCode >= 400;
+#else
+        return iwr.isNetworkError || iwr.responseCode >= 400;
+#endif
+#else
+        return iwr.error != null && iwr.error.Length > 0;
+#endif
+    }
+
+    private string iwrGet_errorString(IRVWebRequest iwr)
+    {
+#if IRV_USE_WEBREQUEST
+#if UNITY_2020_2_OR_NEWER
+        if (iwr.result != IRVWebRequest.Result.Success)
+            return iwr.error;
+#else
+        if (iwr.isNetworkError)
+            return iwr.error;
+#endif
+        else if (iwr.responseCode >= 400)
+            return iwr.responseCode.ToString();
+        else
+            return null;
+#else
+        return iwr.error;
+#endif
+    }
+
+    #endregion
+
+    bool checkCaptivePortalDetectionResult(CaptivePortalDetectionMethod cpdm, IRVWebRequest iwr)
+    {
+        if (iwr == null)
         {
 #           if DEBUG_WARNINGS
-            Debug.LogWarning("IRV checkCaptivePortalDetectionResult - www is null!", this);
+            Debug.LogWarning("IRV checkCaptivePortalDetectionResult - iwr is null!", this);
 #           endif
             return false; // error
         }
 #       if DEBUG_LOGS
-        Debug.Log("IRV checkCaptivePortalDetectionResult cpdm:" + cpdm + ", www size:" + www.size + ", data:" + www.text, this);
-        if (www.responseHeaders != null && www.responseHeaders.Keys != null &&
-            www.responseHeaders.Keys.Count > 0)
-        {
-            string hdrnfo = "IRV - " + www.responseHeaders.Keys.Count + " response headers:\n";
-            foreach (string key in www.responseHeaders.Keys)
-                hdrnfo += key + ": " + www.responseHeaders[key] + "\n";
-            Debug.Log(hdrnfo, this);
+        { // debug scope
+            long bytesDownloaded = iwrGet_bytesDownloaded(iwr);
+            string text = iwrGet_text(iwr);
+            Debug.Log("IRV checkCaptivePortalDetectionResult cpdm:" + cpdm + ", size:" + bytesDownloaded + ", data:" + text, this);
+            Dictionary<string, string> responseHeaders = iwrGet_responseHeaders(iwr);
+            if (responseHeaders != null && responseHeaders.Keys != null && responseHeaders.Keys.Count > 0)
+            {
+                string hdrnfo = "IRV - " + responseHeaders.Keys.Count + " response headers:\n";
+                foreach (string key in responseHeaders.Keys)
+                    hdrnfo += key + ": " + responseHeaders[key] + "\n";
+                Debug.Log(hdrnfo, this);
+            }
         }
 #       endif
 
-        if (www.error != null && www.error.Length > 0)
+        if (iwr.error != null && iwr.error.Length > 0)
             return false; // www ended up in error, can't be success
 
         switch (cpdm)
         {
             case CaptivePortalDetectionMethod.Custom:
 #               if DEBUG_WARNINGS
-                if (www.responseHeaders != null &&
-                    www.responseHeaders.ContainsKey("CACHE-CONTROL"))
+                string cacheControl = iwrGet_responseHeader(iwr, "CACHE-CONTROL");
+                if (cacheControl != null && cacheControl.Length > 0)
                 {
-                    Debug.LogWarning("IRV - Cache-Control header contents: " + www.responseHeaders["CACHE-CONTROL"], this);
+                    Debug.LogWarning("IRV - Cache-Control header contents: " + cacheControl, this);
                     Debug.LogWarning("IRV - Warning, custom www response contains Cache-Control header - you should verify its contents. Recommendation is to have no caching or very short max-age.", this);
                 }
 #               endif
                 if (customMethodVerifierDelegate != null)
-                    return customMethodVerifierDelegate(www, customMethodExpectedData);
-                else if ((customMethodExpectedData.Length > 0 &&
-                          www.text != null &&
-                          www.text.StartsWith(customMethodExpectedData)) ||
+                    return customMethodVerifierDelegate(iwr, customMethodExpectedData);
+                else
+                {
+                    string text = iwrGet_text(iwr);
+                    byte[] bytes = iwrGet_bytes(iwr);
+                    if ((customMethodExpectedData.Length > 0 &&
+                          text != null &&
+                          text.StartsWith(customMethodExpectedData)) ||
                          (customMethodExpectedData.Length == 0 &&
-                          (www.bytes == null || www.bytes.Length == 0)))
-                    return true;
+                          (bytes == null || bytes.Length == 0)))
+                        return true;
+                }
                 break;
 
             case CaptivePortalDetectionMethod.Google204:
-                Dictionary<string,string> responseHeaders = www.responseHeaders;
+            case CaptivePortalDetectionMethod.Google204HTTPS:
+#               if IRV_USE_WEBREQUEST
+                if (iwr.responseCode == 204)
+                    return true;
+#               else // legacy hacks for older unity versions:
+                Dictionary<string,string> responseHeaders = iwrGet_responseHeaders(iwr);
                 if (responseHeaders != null && responseHeaders.Keys != null && responseHeaders.Keys.Count > 0)
                 {
                     string httpStatus = "";
@@ -334,11 +484,7 @@ public class InternetReachabilityVerifier : MonoBehaviour
                 }
                 else
                 {
-#                   if UNITY_5_3_OR_NEWER
-                    if (www.bytesDownloaded == 0)
-#                   else // 3.x, 4.x, 5.0-5.2
-                    if (www.size == 0)
-#                   endif
+                    if (iwrGet_bytesDownloaded(iwr) == 0)
                     {
                         // Some versions of Unity WWW class implementation don't always give
                         // response headers. In that case (or if forcibly using Google204
@@ -347,21 +493,19 @@ public class InternetReachabilityVerifier : MonoBehaviour
                         return true;
                     }
                 }
+#               endif // legacy
                 break;
 
             case CaptivePortalDetectionMethod.GoogleBlank:
-#               if UNITY_5_3_OR_NEWER
-                if (www.bytesDownloaded == 0)
-#               else // 3.x, 4.x, 5.0-5.2
-                if (www.size == 0)
-#               endif
+                if (iwrGet_bytesDownloaded(iwr) == 0)
                 {
                     return true;
                 }
                 break;
 
             case CaptivePortalDetectionMethod.MicrosoftNCSI:
-                if (www.text.StartsWith("Microsoft NCSI"))
+            case CaptivePortalDetectionMethod.MicrosoftNCSI_IPV6:
+                if (iwrGet_text(iwr).StartsWith("Microsoft NCSI"))
                     return true;
                 break;
 
@@ -369,7 +513,7 @@ public class InternetReachabilityVerifier : MonoBehaviour
             case CaptivePortalDetectionMethod.Apple2:
             case CaptivePortalDetectionMethod.AppleHTTPS:
                 // returns a short html doc, do a semi-soft check for it
-                string lowerText = www.text.ToLower();
+                string lowerText = iwrGet_text(iwr).ToLower();
                 int bodySuccessPos = lowerText.IndexOf("<body>success</body>");
                 int titleSuccessPos = lowerText.IndexOf("<title>success</title>");
                 if ((bodySuccessPos >= 0 && bodySuccessPos < 500) ||
@@ -378,11 +522,19 @@ public class InternetReachabilityVerifier : MonoBehaviour
                 break;
 
             case CaptivePortalDetectionMethod.Ubuntu:
+            case CaptivePortalDetectionMethod.UbuntuHTTPS:
                 // returns a whole html doc with lorem ipsum text,
                 // let's use a smaller check for it (start of body)
-                if (www.text.IndexOf("Lorem ipsum dolor sit amet") == 109)
+                if (iwrGet_text(iwr).IndexOf("Lorem ipsum dolor sit amet") == 109)
                     return true;
                 break;
+
+            case CaptivePortalDetectionMethod.MicrosoftConnectTest:
+            case CaptivePortalDetectionMethod.MicrosoftConnectTest_IPV6:
+                if (iwrGet_text(iwr).StartsWith("Microsoft Connect Test"))
+                    return true;
+                break;
+
         }
 
         return false;
@@ -457,30 +609,36 @@ public class InternetReachabilityVerifier : MonoBehaviour
                 Debug.Log("IRV - trying to verify internet access with method " + cpdm + " and url:" + url, this);
 #               endif
 
-                //var req = new UnityWebRequest(url);
-                //yield return req.SendWebRequest();
-                WWW www = new WWW(url);
-                yield return www;
-                if (www.error != null && www.error.Length > 0)
+#               if IRV_USE_WEBREQUEST
+                IRVWebRequest iwr = IRVWebRequest.Get(url);
+                yield return iwr.SendWebRequest();
+#               else
+                IRVWebRequest iwr = new IRVWebRequest(url);
+                yield return iwr;
+#               endif
+
+                if (iwrGet_isError(iwr))
                 {
+                    lastError = iwrGet_errorString(iwr);
+
 #                   if DEBUG_LOGS
-                    Debug.Log("IRV www error: " + www.error, this);
+                    Debug.Log("IRV www error: " + lastError, this);
 #                   endif
-                    lastError = www.error;
 #                   if DEBUG_WARNINGS
                     if (lastError.Contains("no crossdomain.xml"))
                     {
-                        Debug.LogWarning("IRV www error: " + www.error, this);
+                        Debug.LogWarning("IRV www error: " + lastError, this);
                         Debug.LogWarning("See http://docs.unity3d.com/462/Documentation/Manual/SecuritySandbox.html", this);
                         Debug.LogWarning("You should also check WWW Security Emulation Host URL of Unity Editor in Edit->Project Settings->Editor", this);
                     }
 #                   endif
+
                     status = Status.Error;
                     continue;
                 }
                 else // or no www error, verify result:
                 {
-                    bool success = checkCaptivePortalDetectionResult(cpdm, www);
+                    bool success = checkCaptivePortalDetectionResult(cpdm, iwr);
                     if (success)
                     {
 #                       if DEBUG_LOGS
@@ -492,7 +650,6 @@ public class InternetReachabilityVerifier : MonoBehaviour
                     {
 #                       if DEBUG_LOGS
                         Debug.Log("IRV net verification mismatch (network login screen?)", this);
-                        //Debug.Log(www.data, this); // for debug peeking at data
 #                       endif
                         status = Status.Mismatch;
                         continue;
@@ -534,8 +691,16 @@ public class InternetReachabilityVerifier : MonoBehaviour
             captivePortalDetectionMethod = CaptivePortalDetectionMethod.AppleHTTPS;
 #           elif UNITY_STANDALONE_WIN
             captivePortalDetectionMethod = CaptivePortalDetectionMethod.MicrosoftNCSI;
-#           elif UNITY_WEBPLAYER || UNITY_FLASH || UNITY_NACL || UNITY_WEBGL
+#           elif UNITY_WEBPLAYER || UNITY_FLASH || UNITY_NACL || UNITY_FACEBOOK
             captivePortalDetectionMethod = CaptivePortalDetectionMethod.Custom;
+#           elif UNITY_FACEBOOK && UNITY_WEBGL
+            // Facebook platform with WebGL requires both HTTPS and Access-Control-Allow-Origin;
+            // that combination is only available with custom server configured in the right way.
+            captivePortalDetectionMethod = CaptivePortalDetectionMethod.Custom;
+#           elif UNITY_WEBGL
+            // WebGL platform needs Access-Control-Allow-Origin in the server
+            // which seems to be set by MicrosoftConnectTest, so we can use it as default
+            captivePortalDetectionMethod = CaptivePortalDetectionMethod.MicrosoftConnectTest;
 #           elif UNITY_ANDROID
             captivePortalDetectionMethod = CaptivePortalDetectionMethod.Google204;
 #           elif UNITY_STANDALONE_LINUX
@@ -552,7 +717,6 @@ public class InternetReachabilityVerifier : MonoBehaviour
 #           endif
 #           endif
 
-            //cpdmURLs[(int)CaptivePortalDetectionMethod.DefaultByPlatform] = cpdmURLs[(int)cpdm];
             if (captivePortalDetectionMethod == CaptivePortalDetectionMethod.DefaultByPlatform)
             {
                 // there's no "native" one, use fallback
@@ -563,9 +727,10 @@ public class InternetReachabilityVerifier : MonoBehaviour
 #           endif
         }
 
-#if UNITY_WEBPLAYER || UNITY_FLASH || UNITY_NACL || UNITY_WEBGL
+#if UNITY_WEBPLAYER || UNITY_FLASH || UNITY_NACL
         if (captivePortalDetectionMethod != CaptivePortalDetectionMethod.Custom)
         {
+#           if UNITY_FLASH || UNITY_NACL
             if (Application.platform == RuntimePlatform.NaCl ||
                 Application.platform == RuntimePlatform.FlashPlayer)
             {
@@ -573,12 +738,33 @@ public class InternetReachabilityVerifier : MonoBehaviour
                 Debug.LogWarning("IRV - " + Application.platform + " platform isn't supported/tested (However, using the Custom method may work)", this);
 #               endif
             }
+#           endif // flash|nacl
+
 #           if DEBUG_WARNINGS
             Debug.LogWarning("IRV - Web-based platform selected - forcing custom method! (" + Application.platform + ")", this);
 #           endif
             captivePortalDetectionMethod = CaptivePortalDetectionMethod.Custom;
         }
-#endif // webplayer|flash|nacl|webgl
+#endif // webplayer|flash|nacl
+
+#if UNITY_FACEBOOK && UNITY_WEBGL
+        if (captivePortalDetectionMethod != CaptivePortalDetectionMethod.Custom)
+        {
+#           if DEBUG_WARNINGS
+            Debug.LogWarning("IRV - Forcing custom method for Facebook&WebGL combination", this);
+#           endif
+            captivePortalDetectionMethod = CaptivePortalDetectionMethod.Custom;
+        }
+#endif
+
+#if UNITY_WEBGL
+        if (captivePortalDetectionMethod == CaptivePortalDetectionMethod.MicrosoftConnectTest)
+        {
+            // We've defaulted to MicrosoftConnectTest w/WebGL, it's best to
+            // use cache buster, otherwise browser may serve cached results.
+            alwaysUseCacheBuster = true;
+        }
+#endif
 
         if (captivePortalDetectionMethod == CaptivePortalDetectionMethod.Google204)
         {
@@ -613,14 +799,20 @@ public class InternetReachabilityVerifier : MonoBehaviour
 #       if !UNITY_3_5 && !UNITY_4_0 && !UNITY_4_1 && !UNITY_4_2
         // Unity 4.3+
         bool notSupportedWarning = false;
+#       if !UNITY_2017_3_OR_NEWER
         if (Application.platform == RuntimePlatform.TizenPlayer)
             notSupportedWarning = true;
+#       endif // <2017.3
 #       if !UNITY_4_3
         // Unity 4.5+:
-        if (Application.platform == RuntimePlatform.PSP2 ||
-            Application.platform == RuntimePlatform.PS4 ||
-            Application.platform == RuntimePlatform.XboxOne ||
-            Application.platform == RuntimePlatform.SamsungTVPlayer)
+        if (Application.platform == RuntimePlatform.PS4 ||
+#           if !UNITY_2018_3_OR_NEWER
+            Application.platform == RuntimePlatform.PSP2 ||
+#           endif // <2018.3
+#           if !UNITY_2017_3_OR_NEWER
+            Application.platform == RuntimePlatform.SamsungTVPlayer ||
+#           endif // <2017.3
+            Application.platform == RuntimePlatform.XboxOne)
             notSupportedWarning = true;
 #       endif // 4.5+
 
@@ -636,7 +828,7 @@ public class InternetReachabilityVerifier : MonoBehaviour
             notSupportedWarning = true;
 #       endif // 5.0
 
-#       if UNITY_5_2 || UNITY_5_3 || UNITY_5_3_OR_NEWER
+#       if (UNITY_5_2 || UNITY_5_3 || UNITY_5_3_OR_NEWER) && !UNITY_2018_1_OR_NEWER
         if (Application.platform == RuntimePlatform.WiiU)
             notSupportedWarning = true;
 #       endif

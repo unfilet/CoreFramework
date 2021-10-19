@@ -1,5 +1,8 @@
 ﻿using System;
+using UniRx;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using Zenject;
 
 namespace UI.SafeArea
 {
@@ -15,31 +18,36 @@ namespace UI.SafeArea
             Bottom = 1 << 3
         }
 
+        [SerializeField] private bool revers = false;
+        [SerializeField] private Direction ignore = 0;
+        
+        private SafeAreaController _safeAreaController;
+        private  RectTransform rectTransform => transform as RectTransform;
+        private Vector2 _cachedMin;
+        private Vector2 _cachedMax;
+        
+        [Inject]
+        private void Construct(SafeAreaController controller)
+        {
+            _safeAreaController = controller;
+        }
+
+        private void Awake()
+        {
+            _cachedMin = rectTransform.anchorMin;
+            _cachedMax = rectTransform.anchorMax;
+            _safeAreaController.OnSafeAreaChange
+                .Subscribe(UpdateCanvasProperty)
+                .AddTo(this);
+        }
+
         bool HasFlag(Direction @this, Direction mask) => ((int)@this & (int)mask) != 0;
         Vector2 Divide(Vector2 a, Vector2 b) => new Vector2(a.x / b.x, a.y / b.y);
 
-        [SerializeField] bool revers = false;
-        [EnumMask, SerializeField] Direction ignore = 0;
-
-        private void OnEnable()
-        {
-            SafeAreaController.UpdateArea.AddListener(UpdateCanvasProperty);
-            UpdateCanvasProperty();
-        }
-
-        private void OnDisable()
-        {
-            SafeAreaController.UpdateArea.RemoveListener(UpdateCanvasProperty);
-        }
-
         // Update Method
-        public void UpdateCanvasProperty()
+        private void UpdateCanvasProperty(Rect safeArea)
         {
-            RectTransform myTransform = GetComponent<RectTransform>();
-            Rect safeArea = SafeAreaController.GetSafeArea();
             Vector2 screen = new Vector2(Screen.width, Screen.height);
-
-
             Vector2 _saAnchorMin = Divide(safeArea.min, screen);
             Vector2 _saAnchorMax = Divide(safeArea.max, screen);
 
@@ -52,18 +60,18 @@ namespace UI.SafeArea
             else 
             {
                 _saAnchorMin = new Vector2(
-                    HasFlag(ignore, Direction.Left) ? myTransform.anchorMin.x : _saAnchorMin.x,
-                    HasFlag(ignore, Direction.Bottom) ? myTransform.anchorMin.y : _saAnchorMin.y
-                    );
+                    HasFlag(ignore, Direction.Left)   ? _cachedMin.x : _saAnchorMin.x,
+                    HasFlag(ignore, Direction.Bottom) ? _cachedMin.y : _saAnchorMin.y
+                );
 
                 _saAnchorMax = new Vector2(
-                    HasFlag(ignore, Direction.Right) ? myTransform.anchorMax.x : _saAnchorMax.x,
-                    HasFlag(ignore, Direction.Top) ? myTransform.anchorMax.y : _saAnchorMax.y
-                    );
+                    HasFlag(ignore, Direction.Right) ? _cachedMax.x : _saAnchorMax.x,
+                    HasFlag(ignore, Direction.Top)   ? _cachedMax.y : _saAnchorMax.y
+                );
             }
 
-            myTransform.anchorMin = _saAnchorMin;
-            myTransform.anchorMax = _saAnchorMax;
+            rectTransform.anchorMin = _saAnchorMin;
+            rectTransform.anchorMax = _saAnchorMax;
         }
     }
 }

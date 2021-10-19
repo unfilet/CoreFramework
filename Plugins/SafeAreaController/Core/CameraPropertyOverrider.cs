@@ -1,71 +1,57 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using UniRx;
 using UnityEngine;
+using Zenject;
 
 namespace UI.SafeArea
 {
     [RequireComponent(typeof(Camera))]
     public class CameraPropertyOverrider : MonoBehaviour
     {
-
         public bool isSafeAreaCamera = true;
         public bool useFullSize = true;
 
-        private Camera myCamera;
-        private Rect selfSize
+        private SafeAreaController _safeAreaController;
+        private Camera _camera;
+
+        [Inject]
+        private void Construct(SafeAreaController controller)
         {
-            get { return myCamera.rect; }
+            _camera = GetComponent<Camera>();
+            _safeAreaController = controller;
         }
 
-        private Rect _safeSize
+        private void Awake()
         {
-            get
-            {
-
-                var safeArea = SafeAreaController.GetSafeArea();
-
-                float safeX = safeArea.x / Screen.width;
-                float safeY = safeArea.y / Screen.height;
-                float safeW = safeArea.width / Screen.width;
-                float safeH = safeArea.height / Screen.height;
-
-                Rect originalRect = useFullSize ? new Rect(0, 0, 1, 1) : selfSize;
-
-                return new Rect(safeX + originalRect.x / safeW,
-                                safeY + originalRect.y / safeH,
-                                safeW / originalRect.width,
-                                safeH / originalRect.height);
-            }
+            _safeAreaController.OnSafeAreaChange
+                .Subscribe(UpdateCameraProperty)
+                .AddTo(this);
         }
 
-        private void OnEnable()
+        private Rect GetSafeSize(Rect safeArea)
         {
-            SafeAreaController.UpdateArea.AddListener(UpdateCameraProperty);
-            UpdateCameraProperty();
-        }
+            float safeX = safeArea.x / Screen.width;
+            float safeY = safeArea.y / Screen.height;
+            float safeW = safeArea.width / Screen.width;
+            float safeH = safeArea.height / Screen.height;
 
-        private void OnDisable()
-        {
-            SafeAreaController.UpdateArea.RemoveListener(UpdateCameraProperty);
+            Rect originalRect = useFullSize ? new Rect(0, 0, 1, 1) : _camera.rect;
+
+            return new Rect(safeX + originalRect.x / safeW,
+                            safeY + originalRect.y / safeH,
+                            safeW / originalRect.width,
+                            safeH / originalRect.height);
         }
 
         // Update Method
-        private void UpdateCameraProperty()
+        private void UpdateCameraProperty(Rect safeArea)
         {
-
-            if (myCamera == null)
-            {
-                myCamera = GetComponent<Camera>();
-            }
-
             if (isSafeAreaCamera)
-            {
-                myCamera.rect = _safeSize;
-            }
+                _camera.rect = GetSafeSize(safeArea);
             else
-            {
-                myCamera.rect = useFullSize ? new Rect(0, 0, 1, 1) : selfSize;
-            }
+                _camera.rect = useFullSize ? new Rect(0, 0, 1, 1) : _camera.rect;
         }
     }
 }

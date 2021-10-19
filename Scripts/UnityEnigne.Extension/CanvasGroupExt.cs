@@ -7,7 +7,9 @@ using UnityEngine.UI.CoroutineTween;
 
 public static class CanvasGroupExt {
 
-    public static void CrossFadeAlpha (this CanvasGroup group, float alpha, float duration, bool ignoreTimeScale)
+    public class EmptyMonoBehaviour : MonoBehaviour { }
+
+    public static void CrossFadeAlpha(this CanvasGroup group, float alpha, float duration, bool ignoreTimeScale)
     {
         TweenFloat info = new TweenFloat {
             duration = duration,
@@ -17,7 +19,9 @@ public static class CanvasGroupExt {
         };
         info.target = (a) => group.alpha = a;
 
-        MonoBehaviour m_CoroutineContainer = group.GetOrAddComponent<MonoBehaviourExt> ();
+        MonoBehaviour m_CoroutineContainer = null;
+        if (!group.gameObject.TryGetComponent<MonoBehaviour>(out m_CoroutineContainer))
+            m_CoroutineContainer = group.gameObject.AddComponent<EmptyMonoBehaviour>();
 //        m_CoroutineContainer.hideFlags = HideFlags.HideInInspector;
 
         if (m_CoroutineContainer == null)
